@@ -60,6 +60,76 @@ class AnimationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(prepared, [asset])
 
+    async def test_removes_near_duplicate_frames_from_contact_sheet(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            gif_path = temp_path / "mostly-duplicates.gif"
+            duplicate_red = Image.new("RGBA", (10, 10), (252, 0, 0, 255))
+            frames = [
+                Image.new("RGBA", (10, 10), (255, 0, 0, 255)),
+                duplicate_red,
+                duplicate_red.copy(),
+                Image.new("RGBA", (10, 10), (0, 0, 255, 255)),
+                Image.new("RGBA", (10, 10), (0, 255, 0, 255)),
+            ]
+            frames[0].save(
+                gif_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=80,
+                loop=0,
+            )
+            asset = DiscordVisualAsset(
+                kind="emoji",
+                name="dedupe",
+                url="https://cdn.discordapp.com/emojis/456.png?size=128&quality=lossless",
+                animated=True,
+                animation_url=str(gif_path),
+            )
+
+            prepared = await prepare_visual_assets(
+                [asset],
+                cache_dir=temp_path / "cache",
+                frame_count=5,
+            )
+
+            self.assertEqual(prepared[0].frame_count, 3)
+            with Image.open(prepared[0].url) as contact_sheet:
+                self.assertEqual(contact_sheet.size, (528, 194))
+
+    async def test_keeps_first_and_last_frames_when_sampling_many_frames(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            gif_path = temp_path / "long.gif"
+            frames = [
+                Image.new("RGBA", (10, 10), (index * 20, 0, 255 - index * 20, 255))
+                for index in range(10)
+            ]
+            frames[0].save(
+                gif_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=80,
+                loop=0,
+            )
+            asset = DiscordVisualAsset(
+                kind="emoji",
+                name="long",
+                url="https://cdn.discordapp.com/emojis/789.png?size=128&quality=lossless",
+                animated=True,
+                animation_url=str(gif_path),
+            )
+
+            prepared = await prepare_visual_assets(
+                [asset],
+                cache_dir=temp_path / "cache",
+                frame_count=5,
+            )
+
+            self.assertEqual(prepared[0].frame_count, 5)
+            with Image.open(prepared[0].url) as contact_sheet:
+                self.assertEqual(contact_sheet.size, (528, 388))
+
 
 if __name__ == "__main__":
     unittest.main()

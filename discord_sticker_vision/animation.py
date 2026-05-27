@@ -9,7 +9,7 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps, ImageStat
 
 from .assets import DiscordVisualAsset
 
@@ -20,6 +20,7 @@ PADDING = 8
 LABEL_HEIGHT = 18
 BACKGROUND = (255, 255, 255, 255)
 LABEL_FILL = (32, 32, 32, 255)
+SIMILARITY_THRESHOLD = 8.0
 
 
 async def prepare_visual_assets(
@@ -46,8 +47,8 @@ async def prepare_visual_assets(
         prepared.append(
             replace(
                 asset,
-                url=str(contact_sheet),
-                frame_count=frame_count,
+                url=str(contact_sheet[0]),
+                frame_count=contact_sheet[1],
             )
         )
     return prepared
@@ -58,11 +59,12 @@ async def _build_contact_sheet(
     *,
     cache_dir: Path,
     frame_count: int,
-) -> Path | None:
+) -> tuple[Path, int] | None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / f"{_stable_digest(image_ref)}-{frame_count}.png"
+    frame_count_path = cache_path.with_suffix(".frames")
     if cache_path.exists():
-        return cache_path
+        return cache_path, _read_cached_frame_count(frame_count_path, frame_count)
 
     try:
         image_bytes = await asyncio.to_thread(_read_image_bytes, image_ref)
@@ -98,7 +100,7 @@ def _render_contact_sheet(
     image_bytes: bytes,
     frame_count: int,
     output_path: Path,
-) -> Path | None:
+) -> tuple[Path, int] | None:
     with Image.open(BytesIO(image_bytes)) as image:
         total_frames = int(getattr(image, "n_frames", 1) or 1)
         if total_frames <= 1:
@@ -111,6 +113,7 @@ def _render_contact_sheet(
             frame = ImageOps.contain(frame, MAX_FRAME_SIZE, Image.Resampling.LANCZOS)
             frames.append((index + 1, frame.copy()))
 
+    frames = _dedupe_frames(frames)
     if not frames:
         return None
 
@@ -136,7 +139,12 @@ def _render_contact_sheet(
         )
 
     sheet.convert("RGB").save(output_path, format="PNG")
-    return output_path
+    sampled_frame_count = len(frames)
+    output_path.with_suffix(".frames").write_text(
+        str(sampled_frame_count),
+        encoding="utf-8",
+    )
+    return output_path, sampled_frame_count
 
 
 def _sample_indices(total_frames: int, frame_count: int) -> list[int]:
@@ -150,6 +158,44 @@ def _sample_indices(total_frames: int, frame_count: int) -> list[int]:
             for position in range(count)
         }
     )
+
+
+def _dedupe_frames(frames: list[tuple[int, Image.Image]]) -> list[tuple[int, Image.Image]]:
+    if len(frames) <= 2:
+        return frames
+
+    deduped: list[tuple[int, Image.Image]] = [frames[0]]
+    middle_frames = frames[1:-1]
+    for frame in middle_frames:
+        if any(_frames_are_similar(frame[1], kept_frame) for _, kept_frame in deduped):
+            continue
+        deduped.append(frame)
+
+    deduped.append(frames[-1])
+    return deduped
+
+
+def _frames_are_similar(left: Image.Image, right: Image.Image) -> bool:
+    left_sample = _comparison_sample(left)
+    right_sample = _comparison_sample(right)
+    diff = ImageChops.difference(left_sample, right_sample)
+    mean = ImageStat.Stat(diff).mean
+    return sum(mean) / len(mean) < SIMILARITY_THRESHOLD
+
+
+def _comparison_sample(image: Image.Image) -> Image.Image:
+    return ImageOps.contain(
+        image.convert("RGB"),
+        (32, 32),
+        Image.Resampling.BILINEAR,
+    )
+
+
+def _read_cached_frame_count(frame_count_path: Path, fallback: int) -> int:
+    try:
+        return int(frame_count_path.read_text(encoding="utf-8").strip())
+    except Exception:
+        return fallback
 
 
 def _stable_digest(value: str) -> str:

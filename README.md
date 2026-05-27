@@ -35,8 +35,8 @@ AstrBot/data/plugins/astrbot_plugin_discord_sticker_vision
 
 - 一般 Discord Unicode emoji 本來就是文字，因此會維持原樣。
 - 自訂表情符號的 CDN URL 會從 Discord 的 `<:name:id>` 與 `<a:name:id>` 語法產生。
-- 動態 Discord 自訂表情符號會嘗試下載 GIF，取樣成 5 格 PNG contact sheet 後送給 LLM，避免部分 provider 對 GIF 解析為空；如果 Discord CDN 沒有提供可讀取的動畫來源，會 fallback 到 PNG 靜態預覽。
-- 動態貼圖如果是 Discord GIF/APNG，插件也會嘗試取樣成 PNG contact sheet；如果取樣失敗，會 fallback 到 Discord CDN PNG 靜態預覽。
+- 動態 Discord 自訂表情符號會嘗試下載 GIF，取樣成最多 5 格 PNG contact sheet 後送給 LLM，避免部分 provider 對 GIF 解析為空；如果 Discord CDN 沒有提供可讀取的動畫來源，會 fallback 到 PNG 靜態預覽。
+- 動態貼圖如果是 Discord GIF/APNG，插件也會嘗試取樣成 PNG contact sheet；取樣策略會固定保留首尾、均勻抽取中間影格，並移除過於相似的影格。如果取樣失敗，會 fallback 到 Discord CDN PNG 靜態預覽。
 - 產生的 contact sheet 會放在 AstrBot 的 `data/plugin_data/discord_sticker_vision/animation_cache`。
 - 插件會將每次 request 限制在最多 8 個視覺素材，避免單次 LLM request 過度膨脹。
 
