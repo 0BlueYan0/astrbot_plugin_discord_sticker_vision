@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from discord_sticker_vision.assets import (
     DiscordVisualAsset,
+    build_asset_notice_text,
     build_content_parts,
     extract_visual_assets,
 )
@@ -101,6 +102,23 @@ class DiscordAssetTests(unittest.TestCase):
                     },
                 },
             ],
+        )
+
+    def test_builds_notice_text_for_downstream_context(self):
+        assets = [
+            DiscordVisualAsset(
+                kind="emoji", name="blobwave", url="https://example.test/e.png"
+            ),
+            DiscordVisualAsset(
+                kind="sticker", name="thinking", url="https://example.test/s.png"
+            ),
+        ]
+
+        text = build_asset_notice_text(assets, max_assets=2)
+
+        self.assertEqual(
+            text,
+            "[Discord emoji: blobwave]\n[Discord sticker: thinking]",
         )
 
 

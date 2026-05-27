@@ -67,6 +67,12 @@ def build_content_parts(
     return parts
 
 
+def build_asset_notice_text(
+    assets: list[DiscordVisualAsset], *, max_assets: int = 8
+) -> str:
+    return "\n".join(_asset_label(asset) for asset in assets[:max_assets])
+
+
 def _extract_custom_emojis(content: str) -> list[DiscordVisualAsset]:
     assets: list[DiscordVisualAsset] = []
     for match in CUSTOM_EMOJI_RE.finditer(content):
