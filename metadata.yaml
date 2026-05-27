@@ -1,0 +1,8 @@
+name: discord_sticker_vision
+desc: Send Discord stickers and custom emoji images to vision-capable LLMs.
+version: 0.1.0
+author: 0blueyan0
+repo: ""
+support_platforms:
+  - discord
+astrbot_version: ">=4.17.0"
