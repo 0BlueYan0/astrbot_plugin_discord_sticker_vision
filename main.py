@@ -15,7 +15,9 @@ try:
         build_content_parts,
         extract_visual_assets,
     )
+    from .discord_sticker_vision.animation import prepare_visual_assets
 except ImportError:
+    from discord_sticker_vision.animation import prepare_visual_assets
     from discord_sticker_vision.assets import (
         DiscordVisualAsset,
         build_asset_notice_text,
@@ -25,6 +27,7 @@ except ImportError:
 
 
 VISUAL_ASSETS_EXTRA_KEY = "discord_sticker_vision_assets"
+VISUAL_ASSETS_PREPARED_EXTRA_KEY = "discord_sticker_vision_prepared_assets"
 VISUAL_ASSETS_NORMALIZED_EXTRA_KEY = "discord_sticker_vision_normalized"
 
 
@@ -46,16 +49,25 @@ class DiscordVisualAssetFilter(filter.CustomFilter):
     "discord_sticker_vision",
     "0blueyan0",
     "Send Discord stickers and custom emoji to vision-capable LLMs.",
-    "0.2.0",
+    "0.3.0",
 )
 class DiscordStickerVisionPlugin(star.Star):
     def __init__(self, context: star.Context) -> None:
         super().__init__(context)
         self.max_assets = 8
+        self.animation_frame_count = 5
+        self.cache_dir = star.StarTools.get_data_dir("discord_sticker_vision") / (
+            "animation_cache"
+        )
 
     @filter.custom_filter(DiscordVisualAssetFilter, priority=sys.maxsize)
     async def normalize_discord_visual_assets(self, event: AstrMessageEvent):
-        assets = _get_visual_assets(event)
+        assets = await _get_prepared_visual_assets(
+            event,
+            cache_dir=self.cache_dir,
+            frame_count=self.animation_frame_count,
+            max_assets=self.max_assets,
+        )
         if not assets:
             return
         _normalize_event_message(event, assets, max_assets=self.max_assets)
@@ -74,7 +86,12 @@ class DiscordStickerVisionPlugin(star.Star):
         if raw_message is None:
             return
 
-        assets = extract_visual_assets(raw_message)
+        assets = await _get_prepared_visual_assets(
+            event,
+            cache_dir=self.cache_dir,
+            frame_count=self.animation_frame_count,
+            max_assets=self.max_assets,
+        )
         if not assets:
             return
 
@@ -106,6 +123,42 @@ def _get_visual_assets(event: AstrMessageEvent) -> list[DiscordVisualAsset]:
     return assets
 
 
+async def _get_prepared_visual_assets(
+    event: AstrMessageEvent, *, cache_dir, frame_count: int, max_assets: int
+) -> list[DiscordVisualAsset]:
+    prepared_assets = event.get_extra(VISUAL_ASSETS_PREPARED_EXTRA_KEY)
+    if isinstance(prepared_assets, list):
+        return prepared_assets
+
+    assets = _get_visual_assets(event)
+    prepared_assets = await prepare_visual_assets(
+        assets[:max_assets],
+        cache_dir=cache_dir,
+        frame_count=frame_count,
+    )
+    _log_animation_preparation(assets[:max_assets], prepared_assets)
+    event.set_extra(VISUAL_ASSETS_PREPARED_EXTRA_KEY, prepared_assets)
+    return prepared_assets
+
+
+def _log_animation_preparation(
+    raw_assets: list[DiscordVisualAsset], prepared_assets: list[DiscordVisualAsset]
+) -> None:
+    for raw_asset, prepared_asset in zip(raw_assets, prepared_assets):
+        if not raw_asset.animated:
+            continue
+        if prepared_asset.frame_count:
+            logger.info(
+                "Prepared Discord animated asset contact sheet: "
+                f"{raw_asset.kind} {raw_asset.name} ({prepared_asset.frame_count} frames)."
+            )
+        else:
+            logger.warning(
+                "Could not sample Discord animated asset, using static preview: "
+                f"{raw_asset.kind} {raw_asset.name}."
+            )
+
+
 def _append_visual_assets(
     req: ProviderRequest, assets: list[DiscordVisualAsset], *, max_assets: int
 ) -> None:
@@ -134,7 +187,7 @@ def _normalize_event_message(
 
     chain.append(Plain(text=notice_text))
     for asset in assets[:max_assets]:
-        chain.append(Image(file=asset.url, url=asset.url, filename=asset.name))
+        chain.append(_to_image_component(asset))
 
     existing_text = (getattr(event, "message_str", "") or "").strip()
     event.message_str = f"{existing_text}\n{notice_text}".strip()
@@ -167,3 +220,9 @@ def _to_content_part(part: dict[str, object]) -> TextPart | ImageURLPart:
         )
 
     raise ValueError(f"unsupported content part type: {part.get('type')}")
+
+
+def _to_image_component(asset: DiscordVisualAsset) -> Image:
+    if asset.url.startswith(("http://", "https://", "base64://", "file://")):
+        return Image(file=asset.url, url=asset.url, filename=asset.name)
+    return Image.fromFileSystem(asset.url, filename=asset.name)
