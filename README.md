@@ -1,6 +1,6 @@
-# astrbot_plugin_discord_sticker_vision
+# Discord Emoji & Sticker Vision
 
-AstrBot 插件，用來把 Discord 自訂表情符號與貼圖圖片轉交給支援視覺輸入的 LLM provider。
+Discord Emoji & Sticker Vision 是一個 AstrBot 插件，用來把 Discord 自訂表情符號與貼圖圖片轉交給支援視覺輸入的 LLM provider。
 
 ## 功能
 
