@@ -2,7 +2,7 @@ name: discord_sticker_vision
 display_name: Discord 貼圖視覺理解
 desc: Send Discord stickers and custom emoji images to vision-capable LLMs.
 short_desc: 將 Discord 自訂表情符號與貼圖轉成圖片送給支援視覺的 LLM。
-version: 0.1.0
+version: 0.2.0
 author: 0blueyan0
 repo: "https://github.com/0BlueYan0/astrbot_plugin_discord_sticker_vision"
 support_platforms:
