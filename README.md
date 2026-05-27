@@ -1,50 +1,43 @@
 # astrbot_plugin_discord_sticker_vision
 
-AstrBot plugin that forwards Discord custom emoji and sticker images to
-vision-capable LLM providers.
+AstrBot 插件，用來把 Discord 自訂表情符號與貼圖圖片轉交給支援視覺輸入的 LLM provider。
 
-## What it does
+## 功能
 
-When AstrBot is about to send a Discord message to the LLM, this plugin inspects
-the raw Discord message and appends extra user content parts:
+當 AstrBot 準備把 Discord 訊息送給 LLM 時，這個插件會檢查原始 Discord 訊息，並附加額外的使用者內容區塊：
 
-- Discord custom emoji, including animated custom emoji
-- Discord stickers exposed by the Discord adapter
+- Discord 自訂表情符號，包含動態自訂表情符號
+- Discord adapter 暴露出的 Discord 貼圖
 
-The plugin adds a short text label before each image so the model can tell
-whether the image came from an emoji or a sticker.
+插件會在每張圖片前加入簡短文字標籤，讓模型能分辨圖片來源是表情符號還是貼圖。
 
-## Requirements
+## 需求
 
 - AstrBot `>=4.17.0`
 - Discord platform adapter
-- A provider/model that supports image input
-- Discord bot message content intent enabled
+- 支援圖片輸入的 provider/model
+- Discord bot 已啟用 message content intent
 
-## Install
+## 安裝
 
-Place this repository under AstrBot's plugin directory:
+將此 repository 放到 AstrBot 的插件目錄：
 
 ```bash
 AstrBot/data/plugins/astrbot_plugin_discord_sticker_vision
 ```
 
-Then restart AstrBot or reload plugins from the WebUI.
+接著重新啟動 AstrBot，或在 WebUI 重新載入插件。
 
-## Notes
+## 注意事項
 
-- Normal Discord Unicode emoji are text, so they are left unchanged.
-- Custom emoji CDN URLs are generated from Discord's `<:name:id>` and
-  `<a:name:id>` syntax.
-- Sticker URLs are read from the Discord message when available. If AstrBot only
-  exposes a sticker id and format, the plugin falls back to Discord's sticker
-  CDN PNG/GIF URL.
-- The plugin limits each request to 8 visual assets to avoid bloating a single
-  LLM request.
+- 一般 Discord Unicode emoji 本來就是文字，因此會維持原樣。
+- 自訂表情符號的 CDN URL 會從 Discord 的 `<:name:id>` 與 `<a:name:id>` 語法產生。
+- 貼圖 URL 會優先從 Discord 訊息讀取；如果 AstrBot 只提供貼圖 id 與格式，插件會 fallback 到 Discord 的 sticker CDN PNG/GIF URL。
+- 插件會將每次 request 限制在最多 8 個視覺素材，避免單次 LLM request 過度膨脹。
 
-## Development
+## 開發
 
-Run the local tests with:
+執行本地測試：
 
 ```bash
 python3 -m unittest tests.test_discord_assets -v
