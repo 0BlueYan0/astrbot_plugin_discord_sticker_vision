@@ -46,7 +46,7 @@ class DiscordVisualAssetFilter(filter.CustomFilter):
     "discord_sticker_vision",
     "0blueyan0",
     "Send Discord stickers and custom emoji to vision-capable LLMs.",
-    "0.1.0",
+    "0.2.0",
 )
 class DiscordStickerVisionPlugin(star.Star):
     def __init__(self, context: star.Context) -> None:
